@@ -1,50 +1,105 @@
-//// Generates 3 MIDI files:
-//// - t251.mid - a chord sequence
-//// - twinkle.mid - Twinkle twinkle little star
-//// - child_song6.mid - Child song #6
+////   gleuterpea - sound synthesis in gleam.
+//// 
+////   *Note:* The application currently uses the Linux adapter Xalsa and
+////   so it can only be run under Linux.
 
-import euterpea/io/midi/to
-import euterpea/music.{
-  type Music, type Pitch, type PitchClass, A, Bn, C, D, E, F, G, Hn, Par, Qn,
-  Seq, Wn, a, b, c, d, e, f, g, nd,
-}
+import euterpea/play_list
+import gleam/erlang/process
 import gleam/io
-import gleam/list
-import hsom/interlude
+
+pub type SimpleErlang {
+  Ok
+}
+
+/// The sample rate is set in the application environment
+///  (config file for the application).
+// pub type Rate {
+//   R44100
+//   R48000
+//   R96000
+//   R192000
+// }
+pub type Rate =
+  Int
+
+/// Message to notify that ALSA driver is ready for more frames.
+pub type Ready4more {
+  Ready4more
+}
+
+/// Opaque binary array of native-float-32 of size period_size
+/// <<_:period_size()/native-float-size(32)>>
+/// The frames are created by "generator" NIFs in gleuterpea/generator 
+// pub opaque type Frame {
+//   Frame(BitArray)
+// }
+pub type Frame =
+  BitArray
+
+/// Frames are sent to a Xalsa channel ranging 1..no_of_channels()
+pub type ChannelNo =
+  Int
+
+/// The sender can request a notification from the cannel when to
+/// start adding new frames. A Ready4more message will be sent.
+pub type NotifyFlag =
+  Bool
+
+//   @type frames_tuple2() :: {frames(), channel_no()}
+//   @type frames_tuple3() :: {frames(), channel_no(), notify_flag()}
+//   @type frames_tuple4() :: {frames(), channel_no(), notify_flag(), from :: pid()}
+//   @type out_type() :: frames() | frames_tuple2() | frames_tuple3() | frames_tuple4()
+
+pub type Out {
+  FTP2(f: Frame, c: ChannelNo)
+  FTP3(f: Frame, c: ChannelNo, nf: NotifyFlag)
+  FTP4(f: Frame, c: ChannelNo, nf: NotifyFlag, p: process.Pid)
+}
 
 pub fn main() {
   io.println("Hello from gleuterpea!")
-  let _ = to.write_midi(t251(), "t251.mid")
-  let _ = to.write_midi(twinkle(), "twinkle.mid")
-  let _ = to.write_midi(interlude.child_song6(), "child_song6.mid")
+  play_list.play_all()
 }
 
-fn t251() -> Music(Pitch) {
-  let d_minor = d(4, nd(Wn)) |> Par(f(4, nd(Wn))) |> Par(a(4, nd(Wn)))
-  let g_major = g(4, nd(Wn)) |> Par(b(4, nd(Wn))) |> Par(d(5, nd(Wn)))
-  let c_major = c(4, nd(Bn)) |> Par(e(4, nd(Bn))) |> Par(g(4, nd(Bn)))
-  d_minor |> Seq(g_major) |> Seq(c_major)
+@external(erlang, "Elixir.Xalsa", "no_of_channels")
+pub fn no_of_channels() -> Int
+
+/// Return the number of frames that the ALSA driver
+/// consumes per callback cycle.
+@external(erlang, "Elixir.Xalsa", "period_size")
+pub fn period_size() -> Int
+
+@external(erlang, "Elixir.Xalsa", "rate")
+pub fn rate() -> Rate
+
+@external(erlang, "Elixir.Xalsa", "send_frames")
+fn send_frames(
+  frames: BitArray,
+  channel: Int,
+  notify: Bool,
+  from: process.Pid,
+) -> SimpleErlang
+
+/// Send frames to output.
+/// Sends frames in a binary array of frame:32/float-native.
+/// If the `notify` flag is true a :ready4more message will be sent to the
+/// process in the `from` argument when the process frames are due to be consumed
+/// within 5-10 ms. This so that the process may synthesize/produce more frames
+pub fn out(o: Out) -> SimpleErlang {
+  let p = process.self()
+  case o {
+    FTP2(f, c) -> send_frames(f, c, False, p)
+    FTP3(f, c, nf) -> send_frames(f, c, nf, p)
+    FTP4(f, c, nf, p) -> send_frames(f, c, nf, p)
+  }
 }
 
-fn twinkle() -> Music(Pitch) {
-  let m11 =
-    c(4, nd(Qn))
-    |> Seq(c(4, nd(Qn)))
-    |> Seq(g(4, nd(Qn)))
-    |> Seq(g(4, nd(Qn)))
-    |> Seq(a(4, nd(Qn)))
-    |> Seq(a(4, nd(Qn)))
-    |> Seq(g(4, nd(Hn)))
-  // Same as above
-  let m12 =
-    music.line(list.map([C, C, G, G, A, A], pc_to_qn)) |> Seq(g(4, nd(Hn)))
-  let m2 =
-    music.line(list.map([F, F, E, E, D, D], pc_to_qn)) |> Seq(c(4, nd(Hn)))
-  let m3 =
-    music.line(list.map([G, G, F, F, E, E], pc_to_qn)) |> Seq(d(4, nd(Hn)))
-  music.line([m11, m2, m3, m3, m12, m2])
-}
-
-fn pc_to_qn(pc: PitchClass) -> Music(Pitch) {
-  music.note(nd(Qn), music.Pitch(pc, 4))
-}
+/// Blocking wait for ALSA to be ready for more frames.
+@external(erlang, "Elixir.Xalsa", "wait_ready4more")
+pub fn wait_ready4more() -> SimpleErlang
+//   @doc "Return backend module. Defined in env variable backend_api"
+//   @spec api() :: atom()
+//   def api() do
+//     Application.get_env(:granulix, :backend_api)
+//   end
+// end

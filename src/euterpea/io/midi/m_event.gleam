@@ -1,8 +1,9 @@
 //// Conversion to MEvent datatype.
 
 import euterpea/music.{
-  type AbsPitch, type Dur, type InstrumentName, type Music, type PhraseAttribute,
-  type Pitch, type Rational, type Volume0, m_map,
+  type AbsPitch, type Dur, type InstrumentName, type Music, type Music1,
+  type Note1, type NoteAttribute, type PhraseAttribute, type Pitch,
+  type Rational, type Volume0, Note1, Params, Volume, m_map,
 }
 
 import gleam/float
@@ -44,28 +45,9 @@ pub type MContext {
   )
 }
 
-// pub type Integer =
-//   BitArray
-pub type Integer =
-  Int
-
-pub type NoteAttribute {
-  //  MIDI convention: 0=min, 127=max
-  Volume(Int)
-  Fingering(Integer)
-  Dynamics(String)
-  Params(List(Float))
-}
-
-pub type Note1 =
-  #(Pitch, List(NoteAttribute))
-
-pub type Music1 =
-  Music(Note1)
-
 // addVolume    :: Volume -> Music Pitch -> Music (Pitch,Volume)
 pub fn add_volume1(m: Music(Pitch), v: Volume0) -> Music1 {
-  m_map(m, fn(p) { #(p, [Volume(v)]) })
+  m_map(m, fn(p) { Note1(p, [Volume(v)]) })
 }
 
 // merge :: Performance -> Performance -> Performance
@@ -110,8 +92,8 @@ pub fn merge(es1: Performance, es2: Performance) -> Performance {
 pub fn to_music1(m: Music(Pitch)) -> Music1 {
   let map_fn = fn(x) {
     case x {
-      music.Pitch(p, oct) -> #(music.Pitch(p, oct), [])
-      music.AbsPitch(i) -> #(music.pitch(i), [])
+      music.Pitch(p, oct) -> Note1(music.Pitch(p, oct), [])
+      music.AbsPitch(i) -> Note1(music.pitch(i), [])
     }
   }
   m_map(m, map_fn)
@@ -161,11 +143,11 @@ pub fn perform1_dur(m: Music1) -> #(Performance, DurT) {
 // > applyControls x = x
 pub fn apply_controls(m: Music1) -> Music1 {
   case m {
-    music.Modify(music.Tempo(r), mprim) ->
+    music.Modify(mprim, music.Tempo(r)) ->
       music.scale_durations(apply_controls(mprim), r)
-    music.Modify(music.Transpose(k), mprim) ->
+    music.Modify(mprim, music.Transpose(k)) ->
       music.shift_pitches1(k)(apply_controls(mprim))
-    music.Modify(x, mprim) -> music.Modify(x, apply_controls(mprim))
+    music.Modify(mprim, x) -> music.Modify(apply_controls(mprim), x)
     music.Seq(m1, m2) -> music.Seq(apply_controls(m1), apply_controls(m2))
     music.Par(m1, m2) -> music.Par(apply_controls(m1), apply_controls(m2))
     _ -> m
@@ -205,7 +187,7 @@ pub fn music_to_mevents(m: Music1, c: MContext) -> #(Performance, DurT) {
       let #(evs2, d2) = music_to_mevents(m2, c)
       #(merge(evs1, evs2), float.max(d1, d2))
     }
-    _, music.Modify(ctrl, mprim) ->
+    _, music.Modify(mprim, ctrl) ->
       case ctrl {
         music.Instrument(i) ->
           music_to_mevents(mprim, MContext(..c, mc_inst: i))
@@ -237,7 +219,7 @@ fn nas_fun(ev: MEvent, na: NoteAttribute) -> MEvent {
 
 pub fn note_to_mevent(c: MContext, d: Dur, pnas: Note1) -> MEvent {
   let MContext(ct, ci, cdur, cvol) = c
-  let #(p, nas) = pnas
+  let Note1(p, nas) = pnas
   let e0 =
     MEvent(
       e_time: ct,

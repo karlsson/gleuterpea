@@ -63,6 +63,23 @@ pub type Pitch {
 //   Pitch(pc: PitchClass, oct: Octave)
 // }
 
+// pub type Integer =
+//   BitArray
+pub type Integer =
+  Int
+
+pub type NoteAttribute {
+  //  MIDI convention: 0=min, 127=max
+  Volume(Int)
+  Fingering(Integer)
+  Dynamics(String)
+  Params(List(Float))
+}
+
+pub type Note1 {
+  Note1(p: Pitch, nas: List(NoteAttribute))
+}
+
 pub type Primitive(a) {
   Note(Dur, a)
   Rest(Dur)
@@ -76,8 +93,11 @@ pub type Music(a) {
   //  parallel composition
   Par(Music(a), Music(a))
   //  modifier
-  Modify(Control, Music(a))
+  Modify(Music(a), Control)
 }
+
+pub type Music1 =
+  Music(Note1)
 
 pub type Control {
   //  scale the tempo
@@ -344,7 +364,7 @@ pub fn m_map(m: Music(a), f) {
     Prim(p) -> Prim(p_map(p, f))
     Seq(m1, m2) -> Seq(m_map(m1, f), m_map(m2, f))
     Par(m1, m2) -> Par(m_map(m1, f), m_map(m2, f))
-    Modify(c, m) -> Modify(c, m_map(m, f))
+    Modify(m, c) -> Modify(m_map(m, f), c)
   }
 }
 
@@ -372,7 +392,7 @@ pub fn m_fold(m: Music(a), primfn, seqfn, parfn, cfn) {
     Prim(p) -> primfn(p)
     Seq(m1, m2) -> seqfn(rec(m1), rec(m2))
     Par(m1, m2) -> parfn(rec(m1), rec(m2))
-    Modify(c, m) -> cfn(c, rec(m))
+    Modify(m, c) -> cfn(rec(m), c)
   }
 }
 
@@ -438,23 +458,23 @@ pub fn rest(d: Dur) -> Music(a) {
 }
 
 pub fn tempo(m: Music(a), r: Dur) -> Music(a) {
-  Modify(Tempo(r), m)
+  Modify(m, Tempo(r))
 }
 
 pub fn transpose(m: Music(a), ap: AbsPitch) -> Music(a) {
-  Modify(Transpose(ap), m)
+  Modify(m, Transpose(ap))
 }
 
 pub fn instrument(m: Music(a), i: InstrumentName) -> Music(a) {
-  Modify(Instrument(i), m)
+  Modify(m, Instrument(i))
 }
 
 pub fn phrase(m: Music(a), pa: List(PhraseAttribute)) -> Music(a) {
-  Modify(Phrase(pa), m)
+  Modify(m, Phrase(pa))
 }
 
 pub fn keysig(m: Music(a), pc: PitchClass, mo: Mode) -> Music(a) {
-  Modify(KeySig(pc, mo), m)
+  Modify(m, KeySig(pc, mo))
 }
 
 // cff,cf,c,cs,css,dff,df,d,ds,dss,eff,ef,e,es,ess,fff,ff,f,
@@ -751,7 +771,7 @@ pub fn invert(m: Music(Pitch)) -> Music(Pitch) {
       _ -> []
     }
   }
-  let p_ref = m_fold(m, p_fun, list.append, list.append, fn(_, b) { b })
+  let p_ref = m_fold(m, p_fun, list.append, list.append, fn(b, _) { b })
   case p_ref {
     [] -> m
     [h, ..] -> invert_at(m, h)
@@ -772,7 +792,7 @@ pub fn invert1(m: Music(#(Pitch, a))) -> Music(#(Pitch, a)) {
       _ -> []
     }
   }
-  let p_ref = m_fold(m, p_fun, list.append, list.append, fn(_, b) { b })
+  let p_ref = m_fold(m, p_fun, list.append, list.append, fn(b, _) { b })
   case p_ref {
     [] -> m
     [h, ..] -> invert_at1(m, h)
@@ -791,7 +811,7 @@ pub fn invert1(m: Music(#(Pitch, a))) -> Music(#(Pitch, a)) {
 pub fn retro(m: Music(a)) -> Music(a) {
   case m {
     Prim(_) -> m
-    Modify(c, n) -> Modify(c, retro(n))
+    Modify(n, c) -> Modify(retro(n), c)
     Seq(m1, m2) -> Seq(retro(m1), retro(m2))
     Par(m1, m2) -> {
       let d1 = dur(m1)
@@ -827,8 +847,8 @@ pub fn dur(m: Music(a)) -> Dur {
     Prim(Rest(d)) -> d
     Seq(m1, m2) -> dur(m1) +. dur(m2)
     Par(m1, m2) -> float.max(dur(m1), dur(m2))
-    Modify(Tempo(r), m) -> dur(m) /. r
-    Modify(_, m) -> dur(m)
+    Modify(m, Tempo(r)) -> dur(m) /. r
+    Modify(m, _) -> dur(m)
   }
 }
 
@@ -861,8 +881,8 @@ pub fn cut(m: Music(a), d: Dur) -> Music(a) {
       let mprim2 = cut(m2, d -. dur(mprim1))
       Seq(mprim1, mprim2)
     }
-    Modify(Tempo(r), m) -> tempo(cut(m, d *. r), r)
-    Modify(c, m) -> Modify(c, cut(m, d))
+    Modify(m, Tempo(r)) -> tempo(cut(m, d *. r), r)
+    Modify(m, c) -> Modify(cut(m, d), c)
   }
 }
 
@@ -894,8 +914,8 @@ pub fn remove(m: Music(a), d: Dur) -> Music(a) {
       let mprim2 = remove(m2, d -. dur(m1))
       Seq(mprim1, mprim2)
     }
-    Modify(Tempo(r), m) -> tempo(cut(m, d *. r), r)
-    Modify(c, m) -> Modify(c, cut(m, d))
+    Modify(m, Tempo(r)) -> tempo(cut(m, d *. r), r)
+    Modify(m, c) -> Modify(cut(m, d), c)
   }
 }
 
@@ -945,7 +965,7 @@ pub fn remove_zeros(m: Music(a)) -> Music(a) {
         _, _ -> Par(m1, m2)
       }
     }
-    Modify(c, m) -> Modify(c, remove_zeros(m))
+    Modify(m, c) -> Modify(remove_zeros(m), c)
   }
 }
 
@@ -970,8 +990,8 @@ pub fn dur_l(m: Music(a)) -> LazyDur {
       list.append(dl1, list.map(dur_l(m2), fn(x) { dl1_last +. x }))
     }
     Par(m1, m2) -> merge_ld(dur_l(m1), dur_l(m2))
-    Modify(Tempo(r), m) -> list.map(dur_l(m), fn(x) { x /. r })
-    Modify(_, m) -> dur_l(m)
+    Modify(m, Tempo(r)) -> list.map(dur_l(m), fn(x) { x /. r })
+    Modify(m, _) -> dur_l(m)
   }
 }
 
@@ -1036,9 +1056,9 @@ pub fn cut_l(ld: LazyDur, m: Music(a)) -> Music(a) {
       let mprim2 = cut_l(list.map(ld, fn(d) { d -. dur1 }), m2)
       Seq(mprim1, mprim2)
     }
-    _, Modify(Tempo(r), mprim) ->
+    _, Modify(mprim, Tempo(r)) ->
       tempo(cut_l(list.map(ld, fn(x) { x *. r }), mprim), r)
-    _, Modify(c, mprim) -> Modify(c, cut_l(ld, mprim))
+    _, Modify(mprim, c) -> Modify(cut_l(ld, mprim), c)
   }
 }
 
@@ -1177,13 +1197,11 @@ pub fn shift_pitches(ap: AbsPitch) -> fn(Music(Pitch)) -> Music(Pitch) {
 
 // > shiftPitches1 :: AbsPitch -> Music (Pitch, b) -> Music (Pitch, b)
 // > shiftPitches1 k = mMap (\(p,xs) -> (trans k p, xs))
-pub fn shift_pitches1(
-  ap: AbsPitch,
-) -> fn(Music(#(Pitch, b))) -> Music(#(Pitch, b)) {
-  fn(mp: Music(#(Pitch, b))) {
+pub fn shift_pitches1(ap: AbsPitch) -> fn(Music(Note1)) -> Music(Note1) {
+  fn(mp: Music(Note1)) {
     m_map(mp, fn(x) {
-      let #(p, xs) = x
-      #(trans(p, ap), xs)
+      let Note1(p, xs) = x
+      Note1(trans(p, ap), xs)
     })
   }
 }
@@ -1200,14 +1218,14 @@ pub fn scale_durations(m: Music(a), r: Rational) -> Music(a) {
     Prim(Rest(d)) -> rest(d /. r)
     Seq(m1, m2) -> Seq(scale_durations(m1, r), scale_durations(m2, r))
     Par(m1, m2) -> Par(scale_durations(m1, r), scale_durations(m2, r))
-    Modify(c, m) -> Modify(c, scale_durations(m, r))
+    Modify(m, c) -> Modify(scale_durations(m, r), c)
   }
 }
 
 // > changeInstrument :: InstrumentName -> Music a -> Music a
 // > changeInstrument i m = Modify (Instrument i) $ removeInstruments m
 pub fn change_instrument(m: Music(a), i: InstrumentName) -> Music(a) {
-  Modify(Instrument(i), remove_instruments(m))
+  Modify(remove_instruments(m), Instrument(i))
 }
 
 // > removeInstruments :: Music a -> Music a
@@ -1218,8 +1236,8 @@ pub fn change_instrument(m: Music(a), i: InstrumentName) -> Music(a) {
 // > removeInstruments m = m
 pub fn remove_instruments(m: Music(a)) -> Music(a) {
   case m {
-    Modify(Instrument(_i), mprim) -> remove_instruments(mprim)
-    Modify(c, mprim) -> Modify(c, remove_instruments(mprim))
+    Modify(mprim, Instrument(_i)) -> remove_instruments(mprim)
+    Modify(mprim, c) -> Modify(remove_instruments(mprim), c)
     Seq(m1, m2) -> Seq(remove_instruments(m1), remove_instruments(m2))
     Par(m1, m2) -> Par(remove_instruments(m1), remove_instruments(m2))
     _ -> m
