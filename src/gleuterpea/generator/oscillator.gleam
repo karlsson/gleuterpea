@@ -11,7 +11,7 @@ pub type Frequency {
 }
 
 pub type Oscillator {
-  Oscillator(frequency: Frequency, ref: erlang.Reference)
+  Oscillator(frequency: Frequency, ref: erlang.Reference, period_size: Int)
 }
 
 pub type OscType {
@@ -45,17 +45,21 @@ fn osc_next(_ref: erlang.Reference, _freq: Float, _no_of_frames: Int) -> Frame {
 
 fn osc(frequency: Frequency, osctype: OscType) -> Oscillator {
   let rate = gleuterpea.rate()
-  Oscillator(frequency: frequency, ref: osc_ctor(rate, osctype))
+  let period_size = gleuterpea.period_size()
+  Oscillator(
+    frequency: frequency,
+    ref: osc_ctor(rate, osctype),
+    period_size: period_size,
+  )
 }
 
 fn stream(osc: Oscillator) -> Yielder(Frame) {
-  let no_of_frames = gleuterpea.period_size()
   case osc.frequency {
     Fixed(freq) -> {
-      yielder.repeatedly(fn() { osc_next(osc.ref, freq, no_of_frames) })
+      yielder.repeatedly(fn() { osc_next(osc.ref, freq, osc.period_size) })
     }
     Varying(yfreq) -> {
-      yielder.map(yfreq, fn(freq) { osc_next(osc.ref, freq, no_of_frames) })
+      yielder.map(yfreq, fn(freq) { osc_next(osc.ref, freq, osc.period_size) })
     }
   }
 }
