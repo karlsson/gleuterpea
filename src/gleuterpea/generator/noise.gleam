@@ -35,18 +35,6 @@ fn noise_next(_ref: erlang.Reference, _no_of_frames: Int) -> Frame {
   panic as "NIF noise_next/2 not loaded"
 }
 
-pub fn white() -> Noise {
-  new(White)
-}
-
-pub fn pink() -> Noise {
-  new(Pink)
-}
-
-pub fn brown() -> Noise {
-  new(Brown)
-}
-
 fn new(ntype: NoiseType) -> Noise {
   let ref = noise_ctor(ntype)
   let period_size = gleuterpea.period_size()
@@ -55,4 +43,16 @@ fn new(ntype: NoiseType) -> Noise {
 
 pub fn stream(noise: Noise) -> Yielder(Frame) {
   yielder.repeatedly(fn() { noise_next(noise.ref, noise.period_size) })
+}
+
+pub fn white() -> Yielder(Frame) {
+  stream(new(White))
+}
+
+pub fn pink() -> Yielder(Frame) {
+  stream(new(Pink))
+}
+
+pub fn brown() -> Yielder(Frame) {
+  stream(new(Brown))
 }

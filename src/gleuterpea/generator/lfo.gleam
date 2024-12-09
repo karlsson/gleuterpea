@@ -74,7 +74,7 @@ pub fn square(frequency: Float, duty: Option(Float)) -> Yielder(Float) {
     option.None -> 0.5
   }
 
-  let duty = float.max(1.0, float.min(0.0, duty1))
+  let duty = float.min(1.0, float.max(0.0, duty1))
   yielder.unfold(0.0, fn(acc) {
     let val = case acc <. duty {
       True -> 1.0

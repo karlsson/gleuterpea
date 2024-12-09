@@ -14,6 +14,11 @@ pub type FrameStream =
 pub type FramesStream =
   Yielder(List(Frame))
 
+pub type VarOrFixed(a) {
+  Varying(Yielder(a))
+  Fixed(a)
+}
+
 pub fn out(fs: FramesStream) -> FramesStream {
   yielder.transform(fs, True, fn(first, els) {
     case first {

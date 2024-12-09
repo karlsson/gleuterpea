@@ -3,12 +3,11 @@ import gleam/erlang
 import gleam/yielder.{type Yielder}
 import gleuterpea.{type Frame, type Rate}
 import gleuterpea/nifs.{type ErlangResult, type NifLoadError}
+import gleuterpea/stream.{type VarOrFixed}
 
 /// a varying stream (Yielder).
-pub type Frequency {
-  Varying(Yielder(Float))
-  Fixed(Float)
-}
+pub type Frequency =
+  VarOrFixed(Float)
 
 pub type Oscillator {
   Oscillator(frequency: Frequency, ref: erlang.Reference, period_size: Int)
@@ -55,11 +54,11 @@ fn osc(frequency: Frequency, osctype: OscType) -> Oscillator {
 
 fn stream(osc: Oscillator) -> Yielder(Frame) {
   case osc.frequency {
-    Fixed(freq) -> {
-      yielder.repeatedly(fn() { osc_next(osc.ref, freq, osc.period_size) })
-    }
-    Varying(yfreq) -> {
+    stream.Varying(yfreq) -> {
       yielder.map(yfreq, fn(freq) { osc_next(osc.ref, freq, osc.period_size) })
+    }
+    stream.Fixed(freq) -> {
+      yielder.repeatedly(fn() { osc_next(osc.ref, freq, osc.period_size) })
     }
   }
 }

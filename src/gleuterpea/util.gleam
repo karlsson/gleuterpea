@@ -22,7 +22,7 @@ fn mixframes(l: List(Frame)) -> Frame {
 ///  pos shall be between 0.0 and 1.0. The returned stream holds a list
 ///  of two frame arrays.
 pub fn pan(fs: FrameStream, pos: Float) -> FramesStream {
-  let pos = float.max(1.0, float.min(0.0, pos))
+  let pos = float.min(1.0, float.max(0.0, pos))
   yielder.map(fs, fn(frame: Frame) -> List(Frame) { panframe(frame, pos) })
 }
 

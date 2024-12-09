@@ -5,7 +5,6 @@
 import gleam
 import gleam/erlang
 import gleam/int
-import gleam/option.{type Option}
 import gleam/result
 import gleam/yielder.{type Yielder}
 import gleam_community/maths/elementary
@@ -16,6 +15,9 @@ pub opaque type Coeff {
   // default (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
   Coeff(Float, Float, Float, Float, Float, Float)
 }
+
+pub type ErlCoff =
+  #(Float, Float, Float, Float, Float, Float)
 
 pub opaque type BiQuad {
   BiQuad(ref: erlang.Reference, coefficients: Coeff)
@@ -40,8 +42,8 @@ fn biquad_ctor() -> erlang.Reference {
 // Helper NIF to be called when getting the next Frame
 fn biquad_next(
   _ref: erlang.Reference,
-  frame: Frame,
-  coefficients: Coeff,
+  _frame: Frame,
+  _coefficients: Coeff,
 ) -> Frame {
   panic as "NIF biquad_next/3 not loaded"
 }
@@ -254,8 +256,8 @@ pub fn highshelf(freq: Float, db_gain: Float, q_or_slope: Alpha) -> BiQuad {
 }
 
 fn next(bq: BiQuad, f: Frame) -> Frame {
-  let BiQuad(ref, coefficients) = bq
-  biquad_next(ref, f, coefficients)
+  let BiQuad(ref: ref, coefficients: c) = bq
+  biquad_next(ref, f, c)
 }
 
 pub fn stream(yf: Yielder(Frame), bq: BiQuad) -> Yielder(Frame) {
