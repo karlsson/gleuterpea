@@ -1,7 +1,6 @@
 import gleam
 import gleam/erlang
-import gleam/float
-import gleam/yielder.{type Yielder}
+import gleam/yielder
 import gleuterpea.{type Frame}
 import gleuterpea/nifs.{type ErlangResult, type NifLoadError}
 import gleuterpea/stream.{type FrameStream, type VarOrFixed}
@@ -76,10 +75,15 @@ fn bprf_next_nif(
 pub type LagTime =
   VarOrFixed(Float)
 
+pub type Frequency =
+  VarOrFixed(Float)
+
 pub type FilterType {
   Ramp(ref: erlang.Reference, lagtime: LagTime)
   Lag(ref: erlang.Reference, lagtime: LagTime)
   LagUD(ref: erlang.Reference, lagtime_u: LagTime, lagtime_d: LagTime)
+  Lhpf(ref: erlang.Reference, frequency: Frequency)
+  Bprf(ref: erlang.Reference, frequency: Frequency, bwr: Bwr)
 }
 
 /// Break a continuous signal into linearly interpolated segments
@@ -126,7 +130,7 @@ pub fn lag_next(f: Frame, ref: erlang.Reference, lagtime: Float) -> Frame {
 
 fn lag_stream(yf: FrameStream, ref: erlang.Reference, lagtime: LagTime) {
   case lagtime {
-    stream.Fixed(l) -> yielder.map(yf, fn(f) { ramp_next(f, ref, l) })
+    stream.Fixed(l) -> yielder.map(yf, fn(f) { lag_next(f, ref, l) })
     stream.Varying(yl) -> yielder.map2(yf, yl, fn(f, l) { lag_next(f, ref, l) })
   }
 }
@@ -174,6 +178,71 @@ fn lagud_stream(
 
 // --------------------
 
+pub fn lpf(frequency: Frequency) -> FilterType {
+  let rate = gleuterpea.rate()
+  let period_size = gleuterpea.period_size()
+  Lhpf(ref: pf_ctor_nif(rate, period_size, Lpf), frequency:)
+}
+
+pub fn hpf(frequency: Frequency) -> FilterType {
+  let rate = gleuterpea.rate()
+  let period_size = gleuterpea.period_size()
+  Lhpf(ref: pf_ctor_nif(rate, period_size, Hpf), frequency:)
+}
+
+pub fn lhpf_next(f: Frame, ref: erlang.Reference, frequency: Float) -> Frame {
+  lhpf_next_nif(ref, f, frequency)
+}
+
+fn lhpf_stream(yf: FrameStream, ref: erlang.Reference, frequency: Frequency) {
+  case frequency {
+    stream.Fixed(fr) -> yielder.map(yf, fn(f) { lhpf_next(f, ref, fr) })
+    stream.Varying(yfr) ->
+      yielder.map2(yf, yfr, fn(f, l) { lhpf_next(f, ref, l) })
+  }
+}
+
+// --------------------
+///  Bandwidth ratio. The reciprocal of Q.
+///      Q is conventionally defined as centerFreq / bandwidth,
+///      meaning bwr = (bandwidth / centerFreq).
+pub type Bwr =
+  Float
+
+pub fn bpf(frequency: Frequency, bwr: Bwr) -> FilterType {
+  let rate = gleuterpea.rate()
+  let period_size = gleuterpea.period_size()
+  Bprf(ref: pf_ctor_nif(rate, period_size, Bpf), frequency:, bwr:)
+}
+
+pub fn brf(frequency: Frequency, bwr: Bwr) -> FilterType {
+  let rate = gleuterpea.rate()
+  let period_size = gleuterpea.period_size()
+  Bprf(ref: pf_ctor_nif(rate, period_size, Brf), frequency:, bwr:)
+}
+
+pub fn bprf_next(
+  f: Frame,
+  ref: erlang.Reference,
+  frequency: Float,
+  bwr: Bwr,
+) -> Frame {
+  bprf_next_nif(ref, f, frequency, bwr)
+}
+
+fn bprf_stream(
+  yf: FrameStream,
+  ref: erlang.Reference,
+  frequency: Frequency,
+  bwr: Bwr,
+) {
+  case frequency {
+    stream.Fixed(fr) -> yielder.map(yf, fn(f) { bprf_next(f, ref, fr, bwr) })
+    stream.Varying(yfr) ->
+      yielder.map2(yf, yfr, fn(f, l) { bprf_next(f, ref, l, bwr) })
+  }
+}
+
 // --------------------
 pub fn stream(yf: FrameStream, ft: FilterType) -> FrameStream {
   case ft {
@@ -181,5 +250,7 @@ pub fn stream(yf: FrameStream, ft: FilterType) -> FrameStream {
     Lag(ref, lagtime) -> lag_stream(yf, ref, lagtime)
     LagUD(ref, lagtime_u, lagtime_d) ->
       lagud_stream(yf, ref, lagtime_u, lagtime_d)
+    Lhpf(ref, frequency) -> lhpf_stream(yf, ref, frequency)
+    Bprf(ref, frequency, bwr) -> bprf_stream(yf, ref, frequency, bwr)
   }
 }
