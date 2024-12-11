@@ -1610,11 +1610,7 @@ static ERL_NIF_TERM reverb_next(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
       rev->first = NULL;
     }
     (*rev->next)(rev, out_array, in_array, args, inNumSamples);
-    if (len == 1){
-      return out_term[0];
-    } else {
-      return enif_make_list_from_array(env, out_term, len);
-    }
+    return enif_make_list_from_array(env, out_term, len);
   }else{
     return enif_raise_exception(env,
                                 enif_make_string(env,
@@ -1652,4 +1648,4 @@ static int upgrade(ErlNifEnv* caller_env, void** priv_data, void** old_priv_data
 }
 
 
-ERL_NIF_INIT(Elixir.SC.Reverb, nif_funcs, load, NULL, upgrade, NULL);
+ERL_NIF_INIT(gleuterpea@filter@sc_reverb, nif_funcs, load, NULL, upgrade, NULL);

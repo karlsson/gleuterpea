@@ -186,4 +186,4 @@ static int upgrade(ErlNifEnv* caller_env, void** priv_data, void** old_priv_data
 }
 
 
-ERL_NIF_INIT(Elixir.SC.Reverb.AnalogEcho, nif_funcs, load, NULL, upgrade, NULL);
+ERL_NIF_INIT(gleuterpea@filter@sc_analog_echo, nif_funcs, load, NULL, upgrade, NULL);
