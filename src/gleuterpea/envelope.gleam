@@ -172,7 +172,7 @@ pub fn adsr(
         case process.receive(noff_subject, 0) {
           Ok(NoteOff) -> #(r_start, level)
           // Timeout
-          Error(Nil) -> #(0, a.sustain_level)
+          Error(Nil) -> #(p0, level)
         }
       }
       False -> #(p0, level)

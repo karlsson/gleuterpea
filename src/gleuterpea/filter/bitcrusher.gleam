@@ -11,7 +11,7 @@ import gleam/yielder.{type Yielder}
 import gleuterpea.{type Frame}
 import gleuterpea/nifs.{type ErlangResult, type NifLoadError}
 
-pub opaque type BitCrusher {
+pub type BitCrusher {
   BitCrusher(ref: erlang.Reference, bits: Float, normalized_frequency: Float)
 }
 
@@ -52,7 +52,7 @@ pub fn new(bits: Float, normalized_frequency: Float) -> BitCrusher {
   )
 }
 
-fn next(f: Frame, bc: BitCrusher) -> Frame {
+pub fn next(f: Frame, bc: BitCrusher) -> Frame {
   bitcrusher_next(bc.ref, f, bc.bits, bc.normalized_frequency)
 }
 

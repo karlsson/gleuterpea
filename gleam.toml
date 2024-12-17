@@ -1,5 +1,5 @@
 name = "gleuterpea"
-version = "0.1.0"
+version = "0.1.1"
 
 # Fill out these fields if you intend to generate HTML documentation or publish
 # your project to the Hex package manager.
@@ -23,3 +23,8 @@ gleam_community_maths = ">= 1.1.1 and < 2.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
+
+[documentation]
+pages = [
+    { title = "Sound synthesis", path = "soundsynth.html", source = "./src/gleuterpea/README.md" }
+]

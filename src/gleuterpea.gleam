@@ -64,11 +64,17 @@ pub fn main() {
 @external(erlang, "Elixir.Xalsa", "no_of_channels")
 pub fn no_of_channels() -> Int
 
-/// Return the number of frames that the ALSA driver
+/// Return the number of samples in a frame that the ALSA driver
 /// consumes per callback cycle.
 @external(erlang, "Elixir.Xalsa", "period_size")
 pub fn period_size() -> Int
 
+/// The sample rate, one of
+/// * 44100
+/// * 48000
+/// * 96000
+/// * 192100
+/// Hz
 @external(erlang, "Elixir.Xalsa", "rate")
 pub fn rate() -> Rate
 

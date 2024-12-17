@@ -5,6 +5,7 @@
 import gleam/list
 import gleam/yielder.{type Yielder}
 import gleuterpea.{type Frame}
+import gleuterpea/math
 
 /// Contains an Audio Stream
 pub type FrameStream =
@@ -33,6 +34,26 @@ pub fn out(fs: FramesStream) -> FramesStream {
   })
 }
 
+/// Play the yielded synthdefs 
 pub fn play(fs: FramesStream) {
   out(fs) |> yielder.run()
+}
+
+/// Multiply and add
+pub fn ma(yf: FrameStream, m: Float, a: Float) -> FrameStream {
+  yielder.map(yf, fn(f) { math.add(math.mul(f, m), a) })
+}
+
+/// Multiply and add
+/// Multiple channels -> list of binaries (of 32 bit floats)
+pub fn ma2(yfs: FramesStream, m: Float, a: Float) -> FramesStream {
+  yielder.map(yfs, fn(fs) {
+    list.map(fs, fn(f) { math.add(math.mul(f, m), a) })
+  })
+}
+
+/// Multiply and add
+/// "Control rate", cr, single value updated every sample rate/period_size
+pub fn macr(yv: Yielder(Float), m: Float, a: Float) -> Yielder(Float) {
+  yielder.map(yv, fn(v) { v *. m +. a })
 }

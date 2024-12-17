@@ -3,11 +3,13 @@
 //// - twinkle.mid - Twinkle twinkle little star
 //// - child_song6.mid - Child song #6
 
+import euterpea/io/midi/m_event
 import euterpea/io/midi/to
 import euterpea/music.{
   type Music, type Pitch, type PitchClass, A, Bn, C, D, E, F, G, Hn, Par, Qn,
   Seq, Wn, a, b, c, d, e, f, g, nd,
 }
+import gleam/io
 import gleam/list
 import hsom/interlude
 
@@ -45,8 +47,10 @@ pub fn twinkle() -> Music(Pitch) {
 /// - child_song6.mid - Child song #6
 pub fn play_all() {
   let _ = to.write_midi(t251(), "t251.mid")
-  let _ = to.write_midi(twinkle(), "twinkle.mid")
+  let tw = music.instrument(twinkle(), music.Harpsichord)
+  let _ = to.write_midi(tw, "twinkle.mid")
   let _ = to.write_midi(interlude.child_song6(), "child_song6.mid")
+  io.debug(m_event.perform(tw))
 }
 
 fn pc_to_qn(pc: PitchClass) -> Music(Pitch) {

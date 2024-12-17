@@ -204,8 +204,15 @@ fn v2g() {
 // >                              (tempo t (bassLine :=: mainVoice))
 pub fn child_song6() {
   let t = { nd(Dhn) /. nd(Qn) } *. { 69.0 /. 120.0 }
-  let m = tempo(Par(bass_line(), main_voice()), t)
-  music.instrument(m, music.RhodesPiano)
+  let _m =
+    tempo(
+      Par(
+        music.instrument(bass_line(), music.Percussion),
+        music.instrument(main_voice(), music.RhodesPiano),
+      ),
+      t,
+    )
+  // music.instrument(m, music.RhodesPiano)
 }
 // > prefixes         :: [a] -> [[a]]
 // > prefixes []      =  []

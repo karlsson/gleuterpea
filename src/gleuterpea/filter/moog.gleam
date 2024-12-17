@@ -1,8 +1,9 @@
 ////   Emulates the Moog VCF.
-////   cutoff must be between 0 and 1
-////   resonance must be between 0 and 4
+////   * `cutoff` must be between 0 and 1
+////   * `resonance` must be between 0 and 4
+//// 
 ////   This module is from the [Synthex](https://github.com/bitgamma/synthex) application
-////   but rewritten to use NIFs. (`c_src/granulix_moog.c`)
+////   but rewritten to use NIFs. (`c_src/gleuterpea_moog.c`)
 
 import gleam
 import gleam/erlang

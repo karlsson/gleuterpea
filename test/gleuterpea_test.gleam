@@ -1,41 +1,26 @@
+import euterpea/music
 import gleam/int
-import gleam/result
 import gleam/yielder
 import gleeunit
-
-// import gleeunit/should
-
-import euterpea/music
 import gleuterpea
 import gleuterpea/envelope
 import gleuterpea/filter/biquad
 import gleuterpea/filter/bitcrusher
 import gleuterpea/filter/moog
-
-import gleuterpea/filter/sc_analog_echo
-import gleuterpea/filter/sc_filter
 import gleuterpea/filter/sc_reverb
 import gleuterpea/generator/lfo
 import gleuterpea/generator/noise
 import gleuterpea/generator/osc
 import gleuterpea/math
 import gleuterpea/stream
+import gleuterpea/support
 import gleuterpea/util
+
+// import gleuterpea/filter/sc_analog_echo
+// import gleuterpea/filter/sc_filter
 
 pub fn main() {
   gleeunit.main()
-}
-
-fn load_nifs() {
-  use _ <- result.try(math.load_nif())
-  use _ <- result.try(biquad.load_nif())
-  use _ <- result.try(bitcrusher.load_nif())
-  use _ <- result.try(moog.load_nif())
-  use _ <- result.try(noise.load_nif())
-  use _ <- result.try(osc.load_nif())
-  use _ <- result.try(sc_filter.load_nif())
-  use _ <- result.try(sc_analog_echo.load_nif())
-  sc_reverb.load_nif()
 }
 
 // gleeunit test functions end in `_test`
@@ -46,7 +31,7 @@ pub fn hello_test() {
 }
 
 pub fn load_nifs_test() {
-  let assert Ok(Nil) = load_nifs()
+  let assert Ok(Nil) = support.load_nifs()
 }
 
 pub fn sinus_test() {
@@ -61,9 +46,11 @@ pub fn sinus_test() {
 }
 
 pub fn saw_test() {
-  let fm = lfo.triangle(4.0) |> lfo.nma(40.0, 420.0)
+  lfo.triangle(4.0)
+  |> lfo.nma(40.0, 420.0)
+  |> stream.Varying
   // You can have a stream as modulating frequency input for osc
-  osc.saw(stream.Varying(fm))
+  |> osc.saw()
   // Eunit (and gleeunit) default timeout is 5 s, stay under
   |> util.dur(4.0)
   |> util.pan(0.0)
@@ -82,6 +69,7 @@ pub fn triangle_test() {
   // |> sc_analog_echo.ns(0.3)
   // |> yielder.zip(lfo.sin(1.5))
   // |> yielder.map(fn(fp) {util.pan(fp.0, fp.1) })
+  // |> sc_reverb.freeverb0()
   |> util.pan2(lfo.sin(1.5))
   |> sc_reverb.freeverb02()
   |> stream.play()
@@ -111,17 +99,17 @@ pub fn lowpass_test() {
 pub fn moog_test() {
   let streamf = fn(freq, dur) {
     lfo.triangle(5.0)
-    |> macr(5.0, freq)
+    |> stream.macr(5.0, freq)
     |> stream.Varying
     // You can have a stream as modulating frequency input for osc
     |> osc.sin()
     |> moog.stream(moog.new(0.1, 3.2))
     |> util.dur(dur)
-    |> util.pan2(lfo.triangle(1.0) |> macr(0.8, 0.0))
+    |> util.pan2(lfo.triangle(1.0) |> stream.macr(0.8, 0.0))
     |> stream.out()
   }
-  let a = streamf(freq(music.A, 4), 1.4)
-  let c = streamf(freq(music.C, 4), 2.4)
+  let a = streamf(freq(music.A, 4), 1.2)
+  let c = streamf(freq(music.C, 4), 2.2)
   a |> yielder.run()
   c |> yielder.run()
   a |> yielder.run()
@@ -136,21 +124,23 @@ fn freq(pitch: music.PitchClass, oct: music.Octave) -> Float {
   }
 }
 
+pub fn bitcrusher_test() {
+  let bc = bitcrusher.new(4.0, 0.7)
+  osc.sin(stream.Fixed(440.0))
+  // Let the bitcrusher bits go from 8 to 1 during 4 seconds
+  |> envelope.saw_tuple(4.0)
+  |> yielder.map(fn(fe: #(gleuterpea.Frame, Float)) -> gleuterpea.Frame {
+    bitcrusher.next(
+      fe.0,
+      bitcrusher.BitCrusher(..bc, bits: { 1.0 +. fe.1 *. 7.0 }),
+    )
+  })
+  |> util.dur(4.5)
+  |> util.pan(0.0)
+  |> stream.play()
+}
+
 // ---------------------------------------------------
-// Multiply and add
-fn ma(yf: stream.FrameStream, m, a) {
-  yielder.map(yf, fn(f) { math.add(math.mul(f, m), a) })
-}
-
-// fn ma2(yfs: FramesStream) {
-//     // Multiple channels -> list of binaries (of 32 bit floats)
-//     frames when is_list(frames) -> Ma.add(Ma.mul(frames, m), a)
-// }
-
-/// "Control rate" -> single value updated every sample rate/period_size
-fn macr(yv: yielder.Yielder(Float), m, a) {
-  yielder.map(yv, fn(v) { v *. m +. a })
-}
 
 fn log_max_gauges() {
   let assert [max1] = max_mix_time()

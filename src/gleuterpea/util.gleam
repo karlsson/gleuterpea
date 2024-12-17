@@ -1,5 +1,4 @@
 import gleam
-import gleam/bit_array
 import gleam/erlang/process.{type Subject}
 import gleam/float
 import gleam/int
@@ -19,10 +18,10 @@ fn mixframes(l: List(Frame)) -> Frame {
 }
 
 ///  Make two channels muliplied with pos and 1.0 - pos respectively.
-///  pos shall be between 0.0 and 1.0. The returned stream holds a list
+///  pos shall be between -1.0 and 1.0. The returned stream holds a list
 ///  of two frame arrays.
 pub fn pan(fs: FrameStream, pos: Float) -> FramesStream {
-  let pos = float.min(1.0, float.max(0.0, pos))
+  let pos = float.min(1.0, float.max(-1.0, pos))
   yielder.map(fs, fn(frame: Frame) -> List(Frame) { panframe(frame, pos) })
 }
 
@@ -46,9 +45,10 @@ fn panframe(x: Frame, pos: Float) -> List(Frame) {
 pub fn dur(enum: FrameStream, time: Float) -> FrameStream {
   // let ctx = ctx.get()
   let no_of_frames = float.round(time *. int.to_float(gleuterpea.rate()))
+  let psz = gleuterpea.period_size()
   yielder.transform(enum, no_of_frames, fn(acc, frame) {
     case acc > 0 {
-      True -> yielder.Next(frame, acc - bit_array.byte_size(frame) / 4)
+      True -> yielder.Next(frame, acc - psz)
       False -> yielder.Done
     }
   })
