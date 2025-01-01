@@ -14,10 +14,9 @@ import gleam/erlang/process
 import gleam/float
 import gleam/int
 import gleam/list
-import gleam/option
 import gleam/yielder
 import gleam_community/maths/elementary
-import gleuterpea/envelope
+import gleuterpea/envelope.{default_adsr}
 import gleuterpea/generator/osc
 import gleuterpea/stream
 import gleuterpea/support
@@ -62,13 +61,12 @@ fn synth_def1(m: MEvent) {
     // |> util.dur(dur)
     |> envelope.adsr(
       envelope.ADSR(
-        0.2,
-        volf,
-        0.0,
-        option.None,
-        0.3 *. dur,
-        volf /. 2.0,
-        float.max(0.7 *. dur -. 0.2, 0.0),
+        ..default_adsr(),
+        attack: 0.2,
+        attack_level: volf,
+        sustain: 0.3 *. dur,
+        sustain_level: volf /. 2.0,
+        release: float.max(0.7 *. dur -. 0.2, 0.0),
       ),
       process.new_subject(),
     )

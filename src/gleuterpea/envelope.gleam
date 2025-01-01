@@ -110,12 +110,6 @@ fn linev(startv: Float, endv: Float, x: Int, startx: Int, endx: Int) {
   }
 }
 
-// defstruct [
-//   attack: 0.0, attack_level: 1.0,
-//   decay: 0.0, decay_level: nil,
-//   sustain: 0.0, sustain_level: 1.0,
-//   release: 1.0]
-
 /// Attack, Decay, Sustain, Release
 pub type ADSR {
   ADSR(
@@ -129,7 +123,7 @@ pub type ADSR {
   )
 }
 
-pub fn new_adsr() {
+pub fn default_adsr() {
   ADSR(0.0, 1.0, 0.0, option.None, 0.0, 1.0, 1.0)
 }
 
